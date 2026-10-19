@@ -65,3 +65,10 @@ python scripts/build_data.py "/ruta/CAPITAL DATA RAW_IMPORT (8).xlsx" scripts/ca
 `build_data.py` conserva el catálogo e imágenes verificadas y extrae patrones de nomenclatura; `consolidated.py` reemplaza la calibración con los consolidados y crea el libro mayor trazable. No se exportan hojas de compradores ni información personal. No subir el Excel original al repositorio.
 
 Las pruebas verifican la conciliación de S/V, controles mensuales, separación por ciudad, independencia del histórico, ponderación, presupuesto, escenarios y exportaciones. Se realizan comprobaciones de renderizado de las vistas sin navegador y compilación estática. El entorno de desarrollo no ofrece el navegador permitido para verificar visualmente el diseño; esa revisión no se presenta como realizada.
+# Interfaz de la referencia aprobada
+
+La interfaz usa navegación lateral azul, acentos amarillos y fotografías oficiales de los proyectos. El resumen mantiene los consolidados de Bogotá y Medellín separados. “Probar el flow de la referencia” carga una simulación identificada como ejemplo; no modifica la inversión histórica.
+
+En Mi flow, presupuesto, CPL y pesos por proyecto recalculan la proyección durante la edición. Los controles conservan el foco mientras se mueven. La revisión muestra inversión diaria, leads/conversiones, CPL, impresiones, clics, CPM, CPC, CTR y alcance social modelado sin desduplicar; el histórico identifica el alcance único como no reportado. Guardar conserva el plan en el navegador y Exportar descarga el CSV con sus fuentes y fórmulas.
+
+Verificación de esta revisión: 26 pruebas del motor, conciliación, vistas y controles en vivo; compilación estática. No se ejecutó verificación visual en navegador en el entorno de edición.
