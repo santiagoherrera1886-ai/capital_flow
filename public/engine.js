@@ -37,6 +37,27 @@ export function aggregate(records, config = {}) {
     cpc: clicks > 0 ? spend / clicks : null,
     cvr: clicks > 0 ? results / clicks : null };
 }
+export function historicalRows(data, {city, start, end, channel = 'all', project = 'all', search = ''}) {
+  if (!['BTA', 'MDE'].includes(city)) return [];
+  const query = normalize(search);
+  return data.ledger.filter(r => r[0] === city && r[1] >= start && r[1] <= end
+    && (channel === 'all' || r[4] === channel)
+    && (project === 'all' || r[2] === project)
+    && (!query || normalize(`${r[3]} ${r[5]}`).includes(query)));
+}
+export function summarizeLedger(rows) {
+  const sum = i => rows.reduce((s, r) => s + (r[i] ?? 0), 0);
+  const actual = sum(7), planned = sum(6), leads = sum(9), leadSpend = sum(10);
+  return {actual, planned, leads, leadSpend, cpl: leads > 0 && leadSpend > 0 ? leadSpend / leads : null,
+    impressions: sum(11), clicks: sum(12), sourceResults: sum(8), plannedLeads: sum(13),
+    rows: rows.length, missingActual: rows.filter(r => r[7] === null).length,
+    flagged: rows.filter(r => r[15].includes('repeated-metrics')).length,
+    months: new Set(rows.map(r => r[1])).size,
+    execution: planned > 0 ? actual / planned : null};
+}
+export function historicalSeries(rows) {
+  return [...new Set(rows.map(r => r[1]))].sort().map(month => ({month, ...summarizeLedger(rows.filter(r => r[1] === month))}));
+}
 export function benchmark(data, project, channel, config) {
   const window = data.records.filter(r => r[1] === channel && r[2] >= config.historyStart && r[2] <= config.historyEnd);
   const ownRecords = window.filter(r => r[0] === project.id);
@@ -70,6 +91,7 @@ export function buildPlan(data, config) {
   if (!(Number(config.budget) > 0) || !Number.isFinite(Number(config.budget))) errors.push('Ingresa un presupuesto mayor que cero.');
   if (!/^\d{4}-\d{2}$/.test(config.historyStart) || !/^\d{4}-\d{2}$/.test(config.historyEnd) || config.historyStart > config.historyEnd) errors.push('Revisa el intervalo histórico.');
   const selected = data.projects.filter(p => config.selected.includes(p.id));
+  if (new Set(selected.map(p => p.city)).size > 1 || (config.city && selected.some(p => p.city !== config.city))) errors.push('Cada flow pertenece a una sola ciudad. Revisa los proyectos seleccionados.');
   if (!selected.length) errors.push('Selecciona al menos un proyecto.');
   const channels = config.channels.filter(c => CHANNELS[c]);
   if (!channels.length) errors.push('Selecciona al menos un medio.');
@@ -123,6 +145,7 @@ export function buildPlan(data, config) {
   if (unallocated) warnings.push(`Hay ${unallocated.toLocaleString('es-CO')} COP pendientes de asignar por falta de base histórica.`);
   if (config.historyEnd > data.meta.completeThrough) warnings.push('El histórico incluye octubre de 2026, un mes incompleto.');
   if (rows.some(r => r.rate.basis === 'comparable')) warnings.push('Algunos medios usan una referencia de la misma ciudad y tipología; revisa la base de cada fila.');
+  if (data.ledger?.some(r => selected.some(p => p.id === r[2]) && channels.includes(r[4]) && r[1] >= config.historyStart && r[1] <= config.historyEnd && r[15].includes('repeated-metrics'))) warnings.push('La base seleccionada contiene filas con métricas repetidas en el consolidado. Se conservan como en Excel; revisa el detalle del histórico.');
   return { errors, rows, projects: selected, net, days, allocated, unallocated, results, baseResults: sum('baseResults'), impressions: sum('impressions'), clicks: sum('clicks'),
     impressionsComplete: rows.every(r => r.impressions !== null), clicksComplete: rows.every(r => r.clicks !== null),
     cpl: results > 0 ? allocated / results : null, daily: allocated / days, tax: config.includesTax ? Number(config.budget) - net : net * taxRate,

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {allocate,aggregate,benchmark,buildPlan,daysBetween,campaignName,csvText,flowExport} from '../public/engine.js';
+import {allocate,aggregate,benchmark,buildPlan,daysBetween,campaignName,csvText,flowExport,historicalRows,summarizeLedger,historicalSeries} from '../public/engine.js';
 const data=JSON.parse(readFileSync(new URL('../public/data.json',import.meta.url)));
 const base={budget:30000000,includesTax:false,taxRate:19,startDate:'2026-11-01',endDate:'2026-11-30',historyStart:'2026-07',historyEnd:'2026-09',weighting:'recent',selected:['BTA-ACANTO','BTA-NUVO','BTA-MISTRAL','BTA-VERDI'],channels:['meta','google','tiktok'],allocation:'equal',mix:'historical',priorities:{},overrides:{},scenario:'base',sensitivity:20,frequency:3.1,namingMode:'new',stage:'auto',suffix:''};
 test('allocation reconciles to the peso, including fractional and zero weights',()=>{
@@ -35,8 +35,48 @@ test('base plan reconciles budget and projected total from individual rows',()=>
 });
 test('known source project-month CPL can be reconstructed from stored totals',()=>{
   const r=data.records.find(r=>r[0]==='BTA-VERDI'&&r[1]==='meta'&&r[2]==='2026-10');
-  assert.equal(r[3],2544382);assert.equal(r[6],180);assert.equal(r[4],166077);assert.equal(r[5],2963);
-  assert.equal(aggregate([r]).cpl,2544382/180);
+  // Flow Bogota Consolidado!V1789/Z1789/AQ1789/AR1789, not the RAW source.
+  assert.equal(r[3],2544382);assert.equal(r[6],183);assert.equal(r[4],332154);assert.equal(r[5],5926);
+  assert.equal(aggregate([r]).cpl,2544382/183);
+});
+test('full city totals reconcile to independent sums of consolidated detail columns S and V',()=>{
+  const controls={BTA:{rows:1748,planned:2317602748.1721425,actual:2288182930.199048},MDE:{rows:1507,planned:998700182.3633591,actual:914783236.423943}};
+  for(const [city,expected] of Object.entries(controls)){
+    const rows=historicalRows(data,{city,start:'2025-02',end:'2026-10'}),s=summarizeLedger(rows);
+    assert.equal(s.rows,expected.rows);assert.ok(Math.abs(s.actual-expected.actual)<.01);assert.ok(Math.abs(s.planned-expected.planned)<.01);
+    assert.equal(new Set(rows.map(r=>r[14])).size,rows.length);
+    assert.ok(rows.every(r=>r[0]===city));
+    const series=historicalSeries(rows);assert.equal(series.length,20);
+    assert.ok(Math.abs(series.reduce((s,r)=>s+r.actual,0)-expected.actual)<.01);
+    assert.ok(!series.some(r=>r.month.endsWith('-01')));
+  }
+});
+test('September control totals stay separate for Bogotá and Medellín',()=>{
+  for(const [city,expected] of [['BTA',158841555.2684],['MDE',52179236.46679]]){
+    const s=summarizeLedger(historicalRows(data,{city,start:'2026-09',end:'2026-09'}));
+    assert.ok(Math.abs(s.actual-expected)<.01);
+  }
+});
+test('historical scope includes unmapped and brand spend and ignores flow selection and weights',()=>{
+  const scope={city:'BTA',start:'2026-09',end:'2026-09'};
+  const all=historicalRows(data,scope),sum=summarizeLedger(all);
+  assert.ok(all.some(r=>!r[2]&&r[7]>0));
+  assert.ok(sum.actual>sum.leadSpend);
+  assert.equal(summarizeLedger(historicalRows(data,{...scope,selected:['BTA-ACANTO'],weighting:'recent'})).actual,sum.actual);
+  const project=historicalRows(data,{...scope,project:'BTA-ACANTO'});
+  assert.ok(project.length);assert.ok(project.every(r=>r[2]==='BTA-ACANTO'));assert.ok(summarizeLedger(project).actual<sum.actual);
+  assert.equal(historicalRows(data,{...scope,city:'all'}).length,0);
+});
+test('no new flow can mix cities, including imported or stale selections',()=>{
+  assert.ok(buildPlan(data,{...base,city:'MDE'}).errors.some(e=>e.includes('ciudad')));
+  const mde=data.projects.find(p=>p.city==='MDE').id;
+  assert.ok(buildPlan(data,{...base,selected:[...base.selected,mde]}).errors.some(e=>e.includes('ciudad')));
+});
+test('brand results never enter lead CPL and repeated source rows remain visible',()=>{
+  assert.ok(data.ledger.filter(r=>r[5].includes('MARCA')).every(r=>r[9]===null&&r[10]===null));
+  assert.equal(data.meta.consolidated.MDE.repeatedGroups,34);
+  assert.ok(data.ledger.some(r=>r[15].includes('repeated-metrics')));
+  assert.ok(data.ledger.some(r=>r[5]==='Sin nomenclatura'&&r[6]>0));
 });
 test('VAT-inclusive budget is netted before allocation',()=>{
   const p=buildPlan(data,{...base,budget:11900000,includesTax:true});

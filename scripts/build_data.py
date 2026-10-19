@@ -4,6 +4,7 @@ Requires openpyxl for read-only extraction.
 """
 import sys,json,re,unicodedata,collections,datetime,pathlib
 import openpyxl
+from consolidated import attach_consolidated
 
 def norm(s):
     return re.sub('[^A-Z0-9]','',unicodedata.normalize('NFKD',str(s or '').upper()).encode('ascii','ignore').decode())
@@ -140,7 +141,8 @@ def build(workbook,catalog_path,output):
         if not p['token'] or p['token'] in ['VIVOPARK_1','VIVOPARK_2']:p['token']='VIVOPARK'
     meta={'sourceFile':pathlib.Path(workbook).name,'analyzedAt':'2026-10-19','latestMonth':'2026-10','completeThrough':'2026-09','recordColumns':['project','channel','month','spend','impressions','clicks','results','sourceRows'],'sourceRows':sum(source_counts.values()),'sourceCounts':source_counts,'excluded':dict(excluded),'metaRepeatedMetricRows':meta_signature_groups,'unmatchedCampaigns':len(unmatched),'unmatchedRows':sum(unmatched.values()),'invalidNames':invalid_names,'tiktokSources':tiktok_month_rows,'notes':['Meta: gasto total de campañas OUTCOME_LEADS; resultados solo de ubicación Leads. Impresiones y clics únicos por firma de métricas en campaña/mes, sin IDs de campaña en el archivo.','Google: conversiones atribuidas de Search y Performance Max. Se conservan decimales. No equivalen a personas únicas ni necesariamente a leads calificados.','TikTok: un único reporte por ciudad/mes; se suman sus filas. La exportación no incluye día ni ID de registro: granularidad y duplicados internos no son auditables.','Se excluyen marca, seguidores, awareness, video/display de Google, campañas sin proyecto reconocible y hojas consolidadas que repiten las fuentes.','Octubre de 2026 está incompleto. El periodo base predeterminado termina en septiembre.','La lista de proyectos activos procede del flow de octubre; no implica disponibilidad comercial.']}
     data={'meta':meta,'projects':sorted(projects.values(),key=lambda p:(not p['active'],p['city'],p['name'])),'records':records,'templates':templates}
+    attach_consolidated(w,data)
     pathlib.Path(output).write_text(json.dumps(data,ensure_ascii=False,separators=(',',':')))
-    print(json.dumps({'projects':len(projects),'active':sum(p['active'] for p in projects.values()),'images':sum(bool(p['image']) for p in projects.values()),'monthlyRecords':len(records),'sourceRows':meta['sourceRows'],'templates':len(templates),'unmatched':unmatched.most_common(15),'totals':{ch:{'spend':round(sum(r[3] for r in records if r[1]==ch)),'results':round(sum(r[6] for r in records if r[1]==ch),2)} for ch in ['meta','google','tiktok']}},ensure_ascii=False))
+    print(json.dumps({'projects':len(projects),'active':sum(p['active'] for p in projects.values()),'monthlyRecords':len(data['records']),'sourceRows':data['meta']['sourceRows'],'cityTotals':{c:{k:s[k] for k in ['rows','planned','actual']} for c,s in data['meta']['consolidated'].items()}},ensure_ascii=False))
 
 if __name__=='__main__':build(*sys.argv[1:4])

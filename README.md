@@ -1,80 +1,67 @@
-# Capital Flow
+# Capital Flow · Bogotá y Medellín
 
-Aplicación de planeación de medios para Constructora Capital. Selecciona proyectos, define presupuesto y fechas y genera un flow con proyecciones, nomenclaturas y exportaciones.
+Aplicación de planeación de medios de Constructora Capital. Dos espacios independientes por ciudad, imágenes oficiales y un constructor en tres pasos: proyectos, presupuesto y flow.
 
-## Uso
+## Corrección de la versión 2
 
-- **Proyectos:** catálogo con imágenes oficiales, búsqueda, filtros por ciudad/tipología y selección múltiple. La selección inicial y los 30 millones COP son un borrador editable de ejemplo.
-- **Mi flow:** inversión total/diaria, CPL, resultados, mix de medios y detalle de la base por fila. Permite sustituir el CPL de una campaña.
-- **Históricos:** inversión y resultados observados por mes y proyecto. No aplica ponderaciones a las cifras observadas.
-- **Nomenclaturas:** nombres originales o una propuesta normalizada para campañas nuevas; conserva FB, GLG, TT y VML del archivo. Actualiza trimestre, ciudad, etapa y sufijo.
-- **Cómo se calcula:** fórmulas, fuentes, supuestos y limitaciones.
-- **Flows guardados:** borradores en localStorage; importación/exportación JSON para mover configuraciones entre dispositivos.
-- Exportación CSV UTF-8 con separador punto y coma, nombres y bases de cálculo. Impresión/PDF desde el navegador.
+El histórico ahora usa las hojas **` Flow Bogota Consolidado`** y **`Flow Medellín Consolidado`** como fuentes principales. La versión anterior mostraba un subconjunto de proyectos y un intervalo de calibración de tres meses; ese subtotal no representaba la inversión de la ciudad. La selección del nuevo flow ya no modifica el histórico.
 
-## Datos y alcance
+Control de todo el periodo disponible, febrero–diciembre de 2025 y febrero–octubre de 2026:
 
-Fuente: `CAPITAL DATA RAW_IMPORT (8).xlsx`, procesado el 19 de octubre de 2026. Histórico enero 2025–octubre 2026; octubre es parcial. Base predeterminada julio–septiembre 2026.
+| Ciudad | Filas de detalle | Planeada, columna S (COP) | Real registrada, columna V (COP) |
+| --- | ---: | ---: | ---: |
+| Bogotá | 1.748 | 2.317.602.748,17 | 2.288.182.930,20 |
+| Medellín | 1.507 | 998.700.182,36 | 914.783.236,42 |
 
-Se incluyen 81 proyectos identificados (43 presentes en el flow de octubre), 1.920 agregados de proyecto/medio/mes y 4.719 filas de los reportes seleccionados. La base publicada contiene únicamente métricas agregadas de campañas y referencias de proyectos. No contiene el Excel original, compradores, identificaciones, datos de contacto ni salarios.
+Octubre tiene corte al **19 de octubre de 2026**. Enero de ambos años no figura en estas hojas: no se completa con ceros. Los valores de Excel son el snapshot recibido, no una conexión en vivo.
 
-### Preparación
+## Conciliación y alcance
 
-- **Meta:** campañas OUTCOME_LEADS. Se suma todo el gasto de sus filas Leads/Mensajería para reconstruir el gasto de campaña; solo las filas Leads aportan resultados. Impresiones/clics repetidos se cuentan una vez por firma de métricas dentro de campaña y mes. El origen no contiene ID de campaña, lo cual limita la deduplicación.
-- **Google:** Search y Performance Max. Conserva conversiones atribuidas decimales. Video, Display y Demand Gen quedan fuera del modelo de captación.
-- **TikTok:** un reporte por ciudad/mes, priorizando el mensual. Sus filas son aditivas; no hay fecha diaria/ID en la exportación, por lo que la granularidad y los duplicados internos no pueden verificarse. No se combinan con CONSOLIDADO.
-- Se excluyen awareness, marca, seguidores, campañas sin proyecto reconocido y hojas que duplican los reportes. Los descartes están contabilizados en `data.meta`.
-- `Nuevo Naming` de los flows de octubre/septiembre es la fuente de plantillas. Se descarta la fila donde Vento tiene una nomenclatura de Mistral.
+- Se leen filas con fecha y al menos una iniciativa o campaña. Se conserva la fila 1445 de Bogotá, con presupuesto y sin nomenclatura.
+- S es inversión planeada; V, inversión real registrada. No se les aplica IVA adicional ni se mezclan entre sí.
+- Marca, medios no clasificados y campañas sin proyecto identificable permanecen en el total de inversión. Los filtros del histórico son explícitos y separados de los del flow.
+- Los encabezados, subtotales, hojas `Copia de` y reportes RAW no se suman otra vez. Los totales se calculan desde el detalle, porque algunos subtotales almacenados tienen rangos distintos.
+- Se conservan 34 grupos de filas con campaña, mes y métricas repetidas en el consolidado de Medellín. Se señalan para revisión; no se eliminan ni se certifican como duplicados sin evidencia adicional.
+- Cada fila exportada conserva ciudad, mes, hoja y número de fila. Las métricas S/V/Z/AQ/AR mantienen el valor almacenado en el archivo; no se recalculan fórmulas de origen.
+- Leads y CPL utilizan filas con KPI de leads coherente en X y AD. Nombres de marca, alcance, tráfico, interacciones y seguidores se excluyen del CPL, aunque su inversión siga en el total. Z se mantiene sin alterar en la vista de campañas.
+- Impresiones y clics reproducen las columnas AQ/AR del consolidado. Su granularidad depende de las fórmulas de origen y pueden incluir métricas repetidas; no representan personas únicas.
 
-### Fórmulas
+## Proyecciones
 
-`CPL = Σ(w × gasto) / Σ(w × resultados)`
+El subconjunto de calibración requiere proyecto reconocido, medio compatible y KPI de leads coherente. Usa por defecto julio–septiembre de 2026, separado del intervalo visible del histórico.
 
-`CPM = 1000 × Σ(w × gasto) / Σ(w × impresiones)`
+- CPL = suma de inversión de leads / suma de leads.
+- Opción de ponderación reciente: pesos 1, 2, … en el intervalo seleccionado y razón de sumas ponderadas. La ponderación nunca altera las cifras del histórico.
+- Resultados = presupuesto / CPL; CPM = gasto / impresiones × 1.000; CTR = clics / impresiones.
+- Impresiones proyectadas = presupuesto / CPM × 1.000; clics = impresiones × CTR.
+- Alcance social modelado = impresiones / frecuencia supuesta, sin desduplicación. No se modela alcance de Google.
+- Fallback: misma ciudad, tipología y medio, identificado como referencia. Sin CPL válido, queda presupuesto pendiente.
+- Distribución por pesos con conciliación al peso. Escenarios de sensibilidad del CPL, sin presentarlos como intervalos estadísticos.
+- Los flows de ciudades distintas no pueden mezclarse, aunque se importe una selección antigua.
 
-`CTR = Σ(w × clics) / Σ(w × impresiones)`
+El presupuesto empieza vacío. El usuario puede ingresar su cifra o usar la suma planeada de octubre de sus proyectos y medios seleccionados. No se presenta un presupuesto de ejemplo como si fuera histórico.
 
-Ponderación reciente: w=1..N según mes del intervalo. Uniforme: w=1. Los proyectos con gasto y resultados válidos usan su base; sin ella, el fallback requiere la misma ciudad, tipología y plataforma. Si tampoco existe referencia, el presupuesto queda sin asignar.
+## Interfaz
 
-`Presupuesto de proyecto = neto × peso / Σ pesos`
+Navegación superior, selector permanente Bogotá / Medellín, resumen con inversión mensual y mix por medio, histórico con vistas por mes / proyecto / campaña, y constructor en tres pasos. Las fechas, ciudad y alcance acompañan los indicadores. El histórico completo es la vista inicial.
 
-Pesos equitativos, proporcionales al gasto histórico o manuales. Proyectos sin gasto en reparto histórico usan la inversión media de los seleccionados con datos. El mix de medios es histórico o equitativo entre referencias disponibles. En el histórico, un canal nuevo con cero gasto propio no recibe inversión si otro sí tiene gasto; para explorar medios nuevos se usa mix equitativo.
+Los 43 proyectos activos en el flow de octubre tienen imágenes verificadas en sitios oficiales. Se conservan los patrones de nomenclatura de los flows originales y se excluye el nombre de TikTok de Vento que contenía Mistral. Los borradores nuevos y flows guardados se almacenan por ciudad en el navegador, con importación/exportación JSON. Las claves locales de la versión anterior no se eliminan.
 
-El método de restos mayores conserva el presupuesto al peso. Días incluyen inicio y fin. Si el input incluye IVA, se divide por 1+tasa; 19% procede del archivo y es editable, no es asesoría tributaria.
-
-`Resultados = presupuesto / CPL ajustado`
-
-`Impresiones = presupuesto / CPM × 1000`
-
-`Clics = impresiones × CTR`
-
-`Alcance social modelado = impresiones / frecuencia`
-
-Frecuencia 3,1 tomada del flow como supuesto editable. No se informa alcance total único ni se estima alcance para Google. Sensibilidad CPL ±20% editable, sin interpretarla como intervalo probabilístico. El motor es lineal: no estima saturación, causalidad, ventas ni calidad comercial. Los resultados atribuidos no están deduplicados entre plataformas.
-
-## Desarrollo y Vercel
-
-Sin dependencias de aplicación ni servicios de backend. HTML/CSS y módulos JavaScript.
+## Desarrollo y despliegue
 
 ```sh
 npm test
 npm run build
 ```
 
-`npm run build` genera `dist/`. `vercel.json` configura el build y directorio de salida para el proyecto `capital_flow` del equipo indicado por el usuario. Conecta la rama `main` del repositorio en Vercel para el despliegue automático. Las preferencias se guardan solo en el navegador.
+No hay dependencias de producción ni servidor. Vercel publica `dist/` con la integración de GitHub y `vercel.json`.
 
-Para regenerar el dataset con un archivo de igual estructura, desde un entorno con `openpyxl`:
+Recrear el snapshot (solo lectura del Excel; requiere Python y openpyxl):
 
 ```sh
-python scripts/build_data.py /ruta/al/archivo.xlsx scripts/catalog.json public/data.json
-npm test
-npm run build
+python scripts/build_data.py "/ruta/CAPITAL DATA RAW_IMPORT (8).xlsx" scripts/catalog.json public/data.json
 ```
 
-El script lee solamente hojas de campañas, flows y catálogo; no procesa bases de compradores. Cambios en la estructura de hojas requieren revisión del importador.
+`build_data.py` conserva el catálogo e imágenes verificadas y extrae patrones de nomenclatura; `consolidated.py` reemplaza la calibración con los consolidados y crea el libro mayor trazable. No se exportan hojas de compradores ni información personal. No subir el Excel original al repositorio.
 
-## Verificación
-
-Pruebas del motor para conciliación de presupuesto, IVA, fechas inclusivas, ponderación, casos sin datos, fallback, escenarios, CPL manual, nomenclaturas, exportación y exclusión de datos personales. Las imágenes enlazadas se comprobaron por respuesta HTTP y tipo de contenido. La comprobación visual en navegador no se realizó en el entorno de construcción.
-
-Imágenes y marca: Constructora Capital y sitios oficiales de los proyectos, con enlaces de origen en cada ficha.
+Las pruebas verifican la conciliación de S/V, controles mensuales, separación por ciudad, independencia del histórico, ponderación, presupuesto, escenarios y exportaciones. Se realizan comprobaciones de renderizado de las vistas sin navegador y compilación estática. El entorno de desarrollo no ofrece el navegador permitido para verificar visualmente el diseño; esa revisión no se presenta como realizada.
